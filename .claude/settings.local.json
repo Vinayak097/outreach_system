@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm -v)",
+      "Bash(npm i *)",
+      "Bash(node -e \"const c=require\\('crypto'\\);const fs=require\\('fs'\\);let s=fs.readFileSync\\('.env','utf8'\\);s=s.replace\\('0000000000000000000000000000000000000000000000000000000000000000',c.randomBytes\\(32\\).toString\\('hex'\\)\\);s=s.replace\\('change-me-to-a-long-random-string',c.randomBytes\\(48\\).toString\\('hex'\\)\\);s=s.replace\\('ADMIN_PASSWORD=\\\\\"change-me\\\\\"','ADMIN_PASSWORD=\\\\\"admin123\\\\\"'\\);fs.writeFileSync\\('.env',s\\);console.log\\(s\\);\")",
+      "Bash(pnpm install *)",
+      "Bash(pnpm prisma *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm --filter @outreach/api dev)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(pnpm -r typecheck)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/api/health)",
+      "Bash(powershell.exe -NoProfile -Command 'Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }')"
+    ]
+  }
+}

@@ -1,0 +1,102 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model SmtpConfig {
+  id         Int        @id @default(autoincrement())
+  name       String
+  host       String
+  port       Int
+  secure     Boolean    @default(true)
+  username   String
+  password   String
+  fromName   String
+  fromEmail  String
+  imapHost   String?
+  imapPort   Int?
+  imapUser   String?
+  imapPass   String?
+  dailyLimit Int        @default(50)
+  createdAt  DateTime   @default(now())
+  campaigns  Campaign[]
+}
+
+model Campaign {
+  id               Int            @id @default(autoincrement())
+  name             String
+  status           String         @default("draft")
+  smtpConfigId     Int
+  smtpConfig       SmtpConfig     @relation(fields: [smtpConfigId], references: [id])
+  originalFileName String?
+  columnMapping    String?
+  createdAt        DateTime       @default(now())
+  leads            Lead[]
+  steps            SequenceStep[]
+}
+
+model Lead {
+  id             Int         @id @default(autoincrement())
+  campaignId     Int
+  campaign       Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  email          String
+  firstName      String?
+  lastName       String?
+  company        String?
+  jobTitle       String?
+  customFields   String      @default("{}")
+  sourceRowIndex Int
+  status         String      @default("pending")
+  currentStep    Int         @default(0)
+  sends          EmailSend[]
+  createdAt      DateTime    @default(now())
+
+  @@index([campaignId, status])
+}
+
+model SequenceStep {
+  id         Int         @id @default(autoincrement())
+  campaignId Int
+  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  order      Int
+  subjectTpl String
+  bodyTpl    String
+  delayDays  Int         @default(0)
+  sends      EmailSend[]
+}
+
+model EmailSend {
+  id           Int          @id @default(autoincrement())
+  leadId       Int
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  stepId       Int
+  step         SequenceStep @relation(fields: [stepId], references: [id])
+  messageId    String?
+  trackingId   String       @unique
+  scheduledFor DateTime
+  sentAt       DateTime?
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  repliedAt    DateTime?
+  bouncedAt    DateTime?
+  failedAt     DateTime?
+  errorMessage String?
+
+  @@index([scheduledFor, sentAt])
+  @@index([messageId])
+}
+
+model Setting {
+  key   String @id
+  value String
+}

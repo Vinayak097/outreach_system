@@ -103,8 +103,6 @@ router.post("/:id/import", async (req, res, next) => {
       });
     });
 
-    uploadCache.delete(id);
-
     res.json({
       imported: outcome.imported,
       skipped: outcome.skipped,

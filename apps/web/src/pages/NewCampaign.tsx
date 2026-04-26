@@ -227,7 +227,7 @@ export function NewCampaign() {
           preview={preview}
           mapping={mapping}
           onMappingChange={setMapping}
-          onNext={() => goTo("preview")}
+          onNext={() => { setImportedCount(null); goTo("preview"); }}
           onBack={() => goTo("upload")}
         />
       )}

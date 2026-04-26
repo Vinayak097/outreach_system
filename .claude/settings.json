@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @outreach/api test)",
+      "Bash(node -e ' *)",
+      "Bash(pnpm --filter @outreach/web typecheck)",
+      "Bash(npx prisma *)",
+      "Bash(sqlite3 prisma/dev.db ' *)"
+    ]
+  }
+}

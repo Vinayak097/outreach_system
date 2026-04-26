@@ -40,6 +40,8 @@ model Campaign {
   smtpConfig       SmtpConfig     @relation(fields: [smtpConfigId], references: [id])
   originalFileName String?
   columnMapping    String?
+  originalHeaders  String?
+  segmentColumn    String?
   createdAt        DateTime       @default(now())
   leads            Lead[]
   steps            SequenceStep[]
@@ -55,6 +57,7 @@ model Lead {
   company        String?
   jobTitle       String?
   customFields   String      @default("{}")
+  rawRow         String      @default("{}")
   sourceRowIndex Int
   status         String      @default("pending")
   currentStep    Int         @default(0)
@@ -65,26 +68,45 @@ model Lead {
 }
 
 model SequenceStep {
-  id         Int         @id @default(autoincrement())
-  campaignId Int
-  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  order      Int
-  subjectTpl String
-  bodyTpl    String
-  delayDays  Int         @default(0)
-  sends      EmailSend[]
+  id                Int                @id @default(autoincrement())
+  campaignId        Int
+  campaign          Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  order             Int
+  subjectTpl        String             @default("")
+  bodyTpl           String             @default("")
+  delayDays         Int                @default(0)
+  defaultTemplateId Int?
+  defaultTemplate   Template?          @relation("StepDefaultTemplate", fields: [defaultTemplateId], references: [id])
+  sends             EmailSend[]
+  rules             StepSegmentRule[]
+
+  @@index([defaultTemplateId])
+}
+
+model StepSegmentRule {
+  id           Int          @id @default(autoincrement())
+  stepId       Int
+  step         SequenceStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  segmentValue String
+  templateId   Int
+  template     Template     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, segmentValue])
+  @@index([templateId])
 }
 
 model EmailSend {
-  id           Int          @id @default(autoincrement())
-  leadId       Int
-  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  stepId       Int
-  step         SequenceStep @relation(fields: [stepId], references: [id])
-  messageId    String?
-  trackingId   String       @unique
-  scheduledFor DateTime
-  sentAt       DateTime?
+  id                 Int          @id @default(autoincrement())
+  leadId             Int
+  lead               Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  stepId             Int
+  step               SequenceStep @relation(fields: [stepId], references: [id])
+  messageId          String?
+  trackingId         String       @unique
+  resolvedTemplateId Int?
+  resolvedTemplate   Template?    @relation(fields: [resolvedTemplateId], references: [id])
+  scheduledFor       DateTime
+  sentAt             DateTime?
   openedAt     DateTime?
   clickedAt    DateTime?
   repliedAt    DateTime?
@@ -99,4 +121,16 @@ model EmailSend {
 model Setting {
   key   String @id
   value String
+}
+
+model Template {
+  id           Int               @id @default(autoincrement())
+  name         String
+  subject      String
+  body         String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  rules        StepSegmentRule[]
+  defaultSteps SequenceStep[]    @relation("StepDefaultTemplate")
+  sends        EmailSend[]
 }

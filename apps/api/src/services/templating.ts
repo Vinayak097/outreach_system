@@ -12,13 +12,34 @@ export interface TemplateContext {
   custom?: Record<string, string> | null;
 }
 
+const KEY_ALIASES: Record<string, string> = {
+  name: "first_name",
+  firstname: "first_name",
+  first: "first_name",
+  lastname: "last_name",
+  last: "last_name",
+  company: "company",
+  jobtitle: "job_title",
+  title: "job_title",
+  role: "job_title",
+  email: "email",
+  sender: "sender_name",
+  sendername: "sender_name",
+};
+
+function normalizeKey(raw: string): string {
+  const lc = raw.toLowerCase().replace(/[\s_-]+/g, "");
+  return KEY_ALIASES[lc] ?? raw;
+}
+
 function resolve(key: string, ctx: TemplateContext): string | undefined {
   if (key.startsWith("custom.")) {
     const sub = key.slice("custom.".length);
     const custom = ctx.custom ?? {};
     return custom[sub] ?? undefined;
   }
-  const direct = (ctx as Record<string, unknown>)[key];
+  const normalized = normalizeKey(key);
+  const direct = (ctx as Record<string, unknown>)[normalized];
   if (direct === undefined || direct === null) return undefined;
   return String(direct);
 }

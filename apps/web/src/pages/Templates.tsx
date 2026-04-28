@@ -2,8 +2,22 @@ import type { TemplateDTO } from "@outreach/shared";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { RichEditor } from "../components/ui/RichEditor";
 import { Dialog } from "../components/ui/Dialog";
 import { ApiError, api } from "../lib/api";
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+const VARIABLES = [
+  "{{first_name}}",
+  "{{last_name}}",
+  "{{company}}",
+  "{{job_title}}",
+  "{{email}}",
+  "{{sender_name}}",
+];
 
 interface FormState {
   id?: number;
@@ -113,8 +127,8 @@ export function Templates() {
               <div className="min-w-0 flex-1">
                 <div className="font-medium">{t.name}</div>
                 <div className="text-small text-ink-secondary truncate">{t.subject}</div>
-                <div className="text-small text-ink-tertiary mt-1 line-clamp-2 whitespace-pre-wrap">
-                  {t.body.slice(0, 200)}
+                <div className="text-small text-ink-tertiary mt-1 line-clamp-2">
+                  {stripHtml(t.body).slice(0, 200)}
                 </div>
                 <div className="text-tiny text-ink-tertiary mt-2">
                   Updated {new Date(t.updatedAt).toLocaleString()}
@@ -137,11 +151,31 @@ export function Templates() {
         open={formOpen}
         onOpenChange={setFormOpen}
         title={form.id ? "Edit template" : "New template"}
-        description="Variables: {{first_name}}, {{last_name}}, {{company}}, {{job_title}}, {{email}}, {{sender_name}}, {{custom.your_key}}"
+        description=""
       >
         <form onSubmit={onSubmit} className="space-y-3">
+          {/* Variable chips */}
+          <div className="space-y-1">
+            <span className="text-small text-ink-secondary">Available variables</span>
+            <div className="flex flex-wrap gap-1.5">
+              {VARIABLES.map((v) => (
+                <code
+                  key={v}
+                  className="badge bg-surface-secondary text-ink-secondary border cursor-pointer hover:bg-surface-tertiary"
+                  title="Click to copy"
+                  onClick={() => { navigator.clipboard.writeText(v); toast.success(`Copied ${v}`); }}
+                >
+                  {v}
+                </code>
+              ))}
+              <code className="badge bg-surface-secondary text-ink-tertiary border">
+                {"{{custom.col_name}}"}
+              </code>
+            </div>
+          </div>
+
           <label className="block space-y-1">
-            <span className="text-small text-ink-secondary">Name *</span>
+            <span className="text-small text-ink-secondary">Template name *</span>
             <input
               className="input"
               value={form.name}
@@ -160,21 +194,19 @@ export function Templates() {
               placeholder="Quick idea for {{company}}"
             />
           </label>
-          <label className="block space-y-1">
+          <div className="space-y-1">
             <span className="text-small text-ink-secondary">Body *</span>
-            <textarea
-              className="input min-h-[180px] font-mono"
+            <RichEditor
               value={form.body}
-              onChange={(e) => setForm({ ...form, body: e.target.value })}
-              required
-              placeholder={"Hi {{first_name}},\n\n..."}
+              onChange={(v) => setForm((f) => ({ ...f, body: v }))}
+              placeholder="Hi {{first_name}}, ..."
             />
-          </label>
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn" onClick={() => setFormOpen(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving || !form.name || !form.subject || !form.body || form.body === "<br>"}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>

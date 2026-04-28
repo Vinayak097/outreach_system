@@ -35,13 +35,20 @@ export function NewCampaign() {
   const [segmentColumn, setSegmentColumn] = useState<string | null>(null);
   const [segmentValues, setSegmentValues] = useState<Array<{ value: string; count: number }>>([]);
   const [segmentRules, setSegmentRules] = useState<Record<string, Record<string, number>>>({});
+  const [initLoading, setInitLoading] = useState(true);
 
   useEffect(() => {
-    api.templates.list().then(setTemplates).catch(() => undefined);
-    api.campaigns.getSteps(id).then((s) => {
-      if (s.length > 0) {
+    setInitLoading(true);
+    Promise.all([
+      api.templates.list(),
+      api.campaigns.getSteps(id),
+      api.campaigns.get(id),
+      api.campaigns.getSegments(id),
+    ]).then(([tmpls, steps, campaign, segments]) => {
+      setTemplates(tmpls);
+      if (steps.length > 0) {
         setSequence(
-          s.map((x) => ({
+          steps.map((x) => ({
             id: x.id,
             order: x.order,
             subjectTpl: x.subjectTpl,
@@ -51,25 +58,21 @@ export function NewCampaign() {
           })),
         );
       }
-    }).catch(() => undefined);
-    api.campaigns.get(id).then((c) => {
-      if (c.columnMapping) setMapping(c.columnMapping);
-    }).catch(() => undefined);
-    api.campaigns.getSegments(id).then((s) => {
-      setOriginalHeaders(s.headers);
-      setSegmentColumn(s.segmentColumn);
-      setSegmentValues(s.uniqueValues);
-      if (s.segmentColumn) setMapping((m) => ({ ...m, segmentColumn: s.segmentColumn ?? undefined }));
+      if (campaign.columnMapping) setMapping(campaign.columnMapping);
+      setOriginalHeaders(segments.headers);
+      setSegmentColumn(segments.segmentColumn);
+      setSegmentValues(segments.uniqueValues);
+      if (segments.segmentColumn) setMapping((m) => ({ ...m, segmentColumn: segments.segmentColumn ?? undefined }));
       const byStep: Record<string, Record<string, number>> = {};
-      for (const st of s.steps) {
+      for (const st of segments.steps) {
         byStep[String(st.id)] = {};
         for (const r of st.rules) byStep[String(st.id)]![r.segmentValue] = r.templateId;
       }
       setSegmentRules(byStep);
-      if (!preview && s.headers.length > 0) {
-        setPreview({ headers: s.headers, sampleRows: [], totalRows: 0 });
+      if (segments.headers.length > 0) {
+        setPreview((prev) => prev ?? { headers: segments.headers, sampleRows: [], totalRows: 0 });
       }
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => setInitLoading(false));
   }, [id]);
 
   async function refreshUniqueValues(col: string | null) {
@@ -255,7 +258,10 @@ export function NewCampaign() {
           onNext={() => goTo("sequence")}
         />
       )}
-      {step === "sequence" && (
+      {step === "sequence" && initLoading && (
+        <div className="card p-6 text-small text-ink-secondary">Loading…</div>
+      )}
+      {step === "sequence" && !initLoading && (
         <SequenceStepPanel
           steps={sequence}
           onChange={setSequence}
@@ -719,7 +725,14 @@ function SequenceStepPanel({
 
   return (
     <div className="space-y-4">
-      
+      {noTemplates && (
+        <div className="card p-4 flex items-center justify-between gap-4">
+          <span className="text-small text-ink-secondary">No templates yet. Add one first.</span>
+          <button className="btn btn-primary shrink-0" onClick={() => navigate("/templates")}>
+            Add template
+          </button>
+        </div>
+      )}
 
       {segmentColumn && (
         <div className="card p-4 space-y-2">
@@ -774,15 +787,7 @@ function SequenceStepPanel({
 
             <label className="block space-y-1">
               <span className="text-small text-ink-secondary">
-                
-                {noTemplates && (
-        <div className="card p-4 flex items-center justify-between gap-4">
-          <span className="text-small text-ink-secondary">No templates yet. Add one first.</span>
-          <button className="btn btn-primary shrink-0" onClick={() => navigate("/templates")}>
-            Add template
-          </button>
-        </div>
-      )}
+                {segmentColumn ? "Fallback template (used when no segment rule matches)" : "Template"}
               </span>
               <select
                 className="input max-w-md"
@@ -793,7 +798,7 @@ function SequenceStepPanel({
                 }}
                 disabled={noTemplates}
               >
-                
+                <option value="">— pick a saved template —</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}

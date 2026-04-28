@@ -80,6 +80,13 @@ export interface LeadsPage {
   rows: LeadDTO[];
 }
 
+export interface TemplateTestInput {
+  smtpConfigId: number;
+  to: string;
+  subject: string;
+  body: string;
+}
+
 export const api = {
   login: (password: string) =>
     request<{ ok: true }>("/auth/login", {
@@ -110,6 +117,11 @@ export const api = {
     update: (id: number, input: Partial<{ name: string; subject: string; body: string }>) =>
       request<TemplateDTO>(`/templates/${id}`, { method: "PUT", body: JSON.stringify(input) }),
     remove: (id: number) => request<{ ok: true }>(`/templates/${id}`, { method: "DELETE" }),
+    test: (input: TemplateTestInput) =>
+      request<{ ok: true; messageId?: string }>("/templates/test", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
   },
 
   campaigns: {

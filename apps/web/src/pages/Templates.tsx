@@ -1,5 +1,5 @@
-import type { TemplateDTO } from "@outreach/shared";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import type { SmtpConfigDTO, TemplateDTO } from "@outreach/shared";
+import { Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { RichEditor } from "../components/ui/RichEditor";
@@ -30,15 +30,23 @@ const empty: FormState = { name: "", subject: "", body: "" };
 
 export function Templates() {
   const [templates, setTemplates] = useState<TemplateDTO[]>([]);
+  const [smtpConfigs, setSmtpConfigs] = useState<SmtpConfigDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(empty);
   const [saving, setSaving] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testSmtpId, setTestSmtpId] = useState<number | "">("");
+  const [testing, setTesting] = useState(false);
 
   async function refresh() {
     setLoading(true);
     try {
-      setTemplates(await api.templates.list());
+      const [templateRows, smtpRows] = await Promise.all([api.templates.list(), api.smtp.list()]);
+      setTemplates(templateRows);
+      setSmtpConfigs(smtpRows);
+      setTestSmtpId((current) => current || smtpRows[0]?.id || "");
     } catch {
       toast.error("Failed to load templates");
     } finally {
@@ -58,6 +66,16 @@ export function Templates() {
   function openEdit(t: TemplateDTO) {
     setForm({ id: t.id, name: t.name, subject: t.subject, body: t.body });
     setFormOpen(true);
+  }
+
+  function openTest() {
+    if (smtpConfigs.length === 0) {
+      toast.error("Add an SMTP config before sending a template test");
+      return;
+    }
+    setTestTo("");
+    setTestSmtpId((current) => current || smtpConfigs[0]?.id || "");
+    setTestOpen(true);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -93,6 +111,30 @@ export function Templates() {
       await refresh();
     } catch {
       toast.error("Delete failed");
+    }
+  }
+
+  async function onTestTemplate(e: FormEvent) {
+    e.preventDefault();
+    if (!testSmtpId) return;
+    setTesting(true);
+    try {
+      const res = await api.templates.test({
+        smtpConfigId: Number(testSmtpId),
+        to: testTo,
+        subject: form.subject,
+        body: form.body,
+      });
+      toast.success(`Test sent (${res.messageId ?? "ok"})`);
+      setTestOpen(false);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? (err.details as { message?: string } | undefined)?.message ?? err.code
+          : "Test send failed";
+      toast.error(msg);
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -206,11 +248,71 @@ export function Templates() {
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              className="btn"
+              onClick={openTest}
+              disabled={!form.subject || !form.body || form.body === "<br>"}
+            >
+              <Send size={14} />
+              Test template
+            </button>
             <button type="button" className="btn" onClick={() => setFormOpen(false)}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving || !form.name || !form.subject || !form.body || form.body === "<br>"}>
               {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={testOpen}
+        onOpenChange={setTestOpen}
+        title="Send template test"
+        description="Sends the current template with sample variable values so you can see the real email."
+      >
+        <form onSubmit={onTestTemplate} className="space-y-4">
+          <label className="block space-y-1">
+            <span className="text-small text-ink-secondary">SMTP config *</span>
+            <select
+              className="input"
+              value={testSmtpId}
+              onChange={(e) => setTestSmtpId(e.target.value ? Number(e.target.value) : "")}
+              required
+            >
+              <option value="">Select SMTP</option>
+              {smtpConfigs.map((cfg) => (
+                <option key={cfg.id} value={cfg.id}>
+                  {cfg.name} · {cfg.fromEmail}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-small text-ink-secondary">Recipient *</span>
+            <input
+              className="input"
+              type="email"
+              value={testTo}
+              onChange={(e) => setTestTo(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </label>
+
+          <div className="rounded-card bg-surface-secondary p-3 text-small text-ink-secondary">
+            Sample values used: {"{{first_name}} = Alex"}, {"{{company}} = Acme Labs"}, {"{{sender_name}} = Morgan"}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn" onClick={() => setTestOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={testing || !testTo || !testSmtpId}>
+              {testing ? "Sending…" : "Send test"}
             </button>
           </div>
         </form>

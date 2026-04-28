@@ -4,7 +4,7 @@ import { decrypt } from "../lib/crypto.js";
 import { parseJson } from "../lib/json.js";
 import { logger } from "../lib/logger.js";
 import { prisma } from "../lib/prisma.js";
-import { injectPixel, looksLikeHardBounce, rewriteLinks } from "./tracking.js";
+import { injectPixel, looksLikeHardBounce, rewriteLinks, textToHtml } from "./tracking.js";
 import { render, type TemplateContext } from "./templating.js";
 
 export type SendOutcome =
@@ -36,14 +36,7 @@ function buildContext(
 
 function bodyToHtml(text: string): string {
   if (/<\w+[\s>]/.test(text)) return text;
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return escaped
-    .split(/\r?\n\r?\n/)
-    .map((p) => `<p>${p.replace(/\r?\n/g, "<br>")}</p>`)
-    .join("\n");
+  return textToHtml(text);
 }
 
 function bodyToText(rendered: string): string {

@@ -196,6 +196,9 @@ export function Templates() {
           </label>
           <div className="space-y-1">
             <span className="text-small text-ink-secondary">Body *</span>
+            <p className="text-tiny text-ink-tertiary">
+              You can style text with color and email-safe fonts here. Those styles are saved in the template HTML.
+            </p>
             <RichEditor
               value={form.body}
               onChange={(v) => setForm((f) => ({ ...f, body: v }))}

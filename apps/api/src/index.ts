@@ -7,6 +7,7 @@ import { errorHandler } from "./middleware/error.js";
 import { authRouter } from "./routes/auth.js";
 import { campaignFlowRouter } from "./routes/campaignFlow.js";
 import { campaignsRouter } from "./routes/campaigns.js";
+import { cronRouter } from "./routes/cron.js";
 import { leadsRouter } from "./routes/leads.js";
 import { smtpRouter } from "./routes/smtp.js";
 import { templatesRouter } from "./routes/templates.js";
@@ -15,38 +16,34 @@ import { bootstrapAdminUser } from "./services/bootstrap.js";
 import { startImapPoller } from "./services/imapPoller.js";
 import { startScheduler } from "./services/scheduler.js";
 
-async function main() {
-  await bootstrapAdminUser();
+export const app = express();
 
-  const app = express();
-  app.use(
-    cors({
-      origin: config.FRONTEND_URL,
-      credentials: true,
-    }),
-  );
-  app.use(express.json({ limit: "2mb" }));
-  app.use(cookieParser());
+app.use(cors({ origin: config.FRONTEND_URL, credentials: true }));
+app.use(express.json({ limit: "2mb" }));
+app.use(cookieParser());
 
-  app.get("/api/health", (_req, res) => res.json({ ok: true }));
-  app.use("/api/auth", authRouter);
-  app.use("/api/smtp", smtpRouter);
-  app.use("/api/templates", templatesRouter);
-  app.use("/api/campaigns", campaignsRouter);
-  app.use("/api/campaigns", campaignFlowRouter);
-  app.use("/api/leads", leadsRouter);
-  app.use("/t", trackingRouter);
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.use("/api/auth", authRouter);
+app.use("/api/smtp", smtpRouter);
+app.use("/api/templates", templatesRouter);
+app.use("/api/campaigns", campaignsRouter);
+app.use("/api/campaigns", campaignFlowRouter);
+app.use("/api/leads", leadsRouter);
+app.use("/api/cron", cronRouter);
+app.use("/t", trackingRouter);
 
-  app.use(errorHandler);
+app.use(errorHandler);
 
+// Runs on every cold start (local and Vercel). Safe to call repeatedly — it's an upsert.
+bootstrapAdminUser().catch((err) => {
+  logger.error("bootstrap failed", { message: err instanceof Error ? err.message : String(err) });
+});
+
+// Only start a long-lived server in local dev — Vercel uses the exported `app` directly.
+if (config.NODE_ENV !== "production") {
   app.listen(config.PORT, () => {
     logger.info("api listening", { port: config.PORT, frontend: config.FRONTEND_URL });
     startScheduler();
     startImapPoller();
   });
 }
-
-main().catch((err) => {
-  logger.error("startup failed", { message: err instanceof Error ? err.message : String(err) });
-  process.exit(1);
-});

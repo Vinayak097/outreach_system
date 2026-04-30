@@ -7,12 +7,13 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: "https://outreach-system-api.vercel.app",
         changeOrigin: true,
       },
       "/t": {
-        target: "http://localhost:3001",
+        target: "https://outreach-system-api.vercel.app",
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/t/, "/tracking"),
       },
     },
   },

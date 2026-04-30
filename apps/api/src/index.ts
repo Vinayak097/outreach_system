@@ -34,16 +34,15 @@ app.use("/t", trackingRouter);
 
 app.use(errorHandler);
 
-// Runs on every cold start (local and Vercel). Safe to call repeatedly — it's an upsert.
-bootstrapAdminUser().catch((err) => {
-  logger.error("bootstrap failed", { message: err instanceof Error ? err.message : String(err) });
-});
-
-// Only start a long-lived server in local dev — Vercel uses the exported `app` directly.
-if (config.NODE_ENV !== "production") {
-  app.listen(config.PORT, () => {
-    logger.info("api listening", { port: config.PORT, frontend: config.FRONTEND_URL });
-    startScheduler();
-    startImapPoller();
+bootstrapAdminUser()
+  .then(() => {
+    app.listen(config.PORT, () => {
+      logger.info("api listening", { port: config.PORT, frontend: config.FRONTEND_URL });
+      startScheduler();
+      startImapPoller();
+    });
+  })
+  .catch((err) => {
+    logger.error("startup failed", { message: err instanceof Error ? err.message : String(err) });
+    process.exit(1);
   });
-}
